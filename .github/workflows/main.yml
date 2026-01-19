@@ -1,0 +1,94 @@
+name: Build MXLive
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Flutter (Latest Stable)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.1'
+          channel: 'stable'
+
+      # নতুন প্রজেক্ট তৈরি
+      - name: Create Base Project
+        run: flutter create temp_app --org com.oriby.mxlive --project-name mxlive
+
+      # কোড ইনজেকশন
+      - name: Inject Your Code
+        run: |
+          rm -rf temp_app/lib/*
+          cp -r lib temp_app/
+          cp pubspec.yaml temp_app/
+          cp -r assets temp_app/
+
+      # [FIX 1] settings.gradle এ জোর করে Kotlin 2.0.21 সেট করা
+      - name: Force Kotlin 2.0 in Settings
+        working-directory: ./temp_app
+        run: |
+          cat <<EOF > android/settings.gradle
+          pluginManagement {
+              def flutterSdkPath = {
+                  def properties = new Properties()
+                  file("local.properties").withInputStream { properties.load(it) }
+                  def flutterSdkPath = properties.getProperty("flutter.sdk")
+                  assert flutterSdkPath != null, "flutter.sdk not set in local.properties"
+                  return flutterSdkPath
+              }()
+
+              includeBuild("\$flutterSdkPath/packages/flutter_tools/gradle")
+
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+
+          plugins {
+              id "dev.flutter.flutter-plugin-loader" version "1.0.0"
+              id "com.android.application" version "8.3.0" apply false
+              id "org.jetbrains.kotlin.android" version "2.0.21" apply false
+          }
+
+          include ":app"
+          EOF
+
+      # [FIX 2] Gradle Wrapper জোর করে 8.4 করা
+      - name: Force Gradle 8.4
+        working-directory: ./temp_app
+        run: |
+           sed -i 's/distributionUrl=.*$/distributionUrl=https\:\/\/services.gradle.org\/distributions\/gradle-8.4-all.zip/g' android/gradle/wrapper/gradle-wrapper.properties
+
+      # [FIX 3] MinSDK ফিক্স
+      - name: Fix Android MinSdkVersion
+        working-directory: ./temp_app
+        run: |
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/g' android/app/build.gradle
+
+      - name: Install Dependencies
+        working-directory: ./temp_app
+        run: flutter pub get
+
+      - name: Build APK
+        working-directory: ./temp_app
+        run: flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mxlive-release
+          path: temp_app/build/app/outputs/flutter-apk/app-release.apk
