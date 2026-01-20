@@ -129,7 +129,8 @@ class _HomeScreenState extends State<HomeScreen> {
         // Extract URL (Next Line)
         if (i + 1 < lines.length && lines[i + 1].startsWith("http")) {
           url = lines[i + 1].trim();
-          tempChannels.push(Channel(name: name, logo: logo, group: group, url: url));
+          // FIX: Changed .push to .add
+          tempChannels.add(Channel(name: name, logo: logo, group: group, url: url));
         }
       }
     }
