@@ -20,7 +20,24 @@ jobs:
         with:
           flutter-version: '3.19.0'
           channel: 'stable'
+      
+      # এই ধাপটি ম্যাজিকের মতো কাজ করবে!
+      # এটি আপনার প্রজেক্টের মিসিং Android ফোল্ডার তৈরি করবে এবং পারমিশন ঠিক করবে।
+      - name: Generate Android Project & Fix Permissions
+        run: |
+          # 1. আগের কোনো ভাঙা Android ফোল্ডার থাকলে মুছে ফেলা
+          rm -rf android
           
+          # 2. নতুন করে ফ্রেশ Android V2 প্রোজেক্ট তৈরি করা
+          flutter create . --org com.mxlive --project-name mxlive
+          
+          # 3. AndroidManifest এ ইন্টারনেট এবং ভিডিও পিকের পারমিশন ইনজেক্ট করা
+          # (যাতে আপনার ম্যানুয়ালি ফাইল এডিট করতে না হয়)
+          sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.WAKE_LOCK"/>\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>\n    <application android:usesCleartextTraffic="true"|g' android/app/src/main/AndroidManifest.xml
+          
+          # 4. Min SDK ভার্সন ফিক্স (ভিডিও প্লেয়ারের জন্য জরুরি)
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle
+
       - name: Install Dependencies
         run: flutter pub get
         
